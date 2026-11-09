@@ -33,12 +33,28 @@ test('AI 기본 HTTP 코드 차이는 참고지만 명시 약속과 업무 성�
  assert.equal(validStatusPolicy({...s.expected.statusPolicy,mode:'equivalent'}),false);
 });
 
+test('AI가 따옴표 없이 보낸 값은 문자열로 읽고 깨진 구조는 거절한다',()=>{
+ assert.equal(normalizeApiCheck({pointer:'/data',operator:'type',valueJson:'number'}).value,'number');
+ assert.equal(normalizeApiCheck({pointer:'/data/id',operator:'equals',valueJson:'$fixture/records/a/id'}).value,'$fixture/records/a/id');
+ assert.equal(normalizeApiCheck({pointer:'/data/n',operator:'equals',valueJson:'3'}).value,3);
+ for(const j of [{operator:'equals',valueJson:''},{operator:'equals',valueJson:'{"a":'},{operator:'setEquals',valueJson:'$fixture/x'}])assert.throws(()=>normalizeApiCheck({pointer:'/a',...j}),SyntaxError);
+});
+
 test('AI의 목록 ID 표현을 같은 전체 집합 검증으로 정규화한다',()=>{
  const normalized=normalizeApiCheck({pointer:'/items/*/id',operator:'setEquals',valueJson:'["a","b"]'});
  const s={expected:{status:200,checks:[normalized]}};
  assert.equal(checkResponse(s,{status:200,body:'{"items":[{"id":"b"},{"id":"a"}]}'}).status,'PASS');
  assert.equal(checkResponse(s,{status:200,body:'{"items":[{"id":"a"},{"id":"b"},{"id":"other"}]}'}).status,'FAIL');
 });
+test('저장 ID를 알 수 없는 DB 확인은 누락 조건으로 남기고 응답 검사는 유지한다',async()=>{
+ const catalog=await discoverControllers('fixtures/controller-api','src/test/java'),endpoint=catalog.endpoints[0];
+ const feature={id:'db-gap',name:'등록',scan:{id:'scan-1'},analysis:{summary:'등록',findings:[{text:'등록',quote:'등록',nodeIds:['n1']}],questions:[]}};
+ const c={endpointId:endpoint.id,name:'등록 성공',findingIndices:[0],conditionIds:[],answerIndices:[],auth:'anonymous',fixtureProfile:'none',fixtureGraphJson:'null',givenDescription:'',givenFacts:[],pathValues:[],query:[],bodyJson:'null',status:201,statusOrigin:'ai_default',statusReason:'생성 기본 응답',checks:[{pointer:'/data',operator:'type',valueJson:'number'}],database:[{entity:'notice',id:'$fixture/records/created/id',exists:true,label:'등록된 행사'}],notCovered:[]};
+ const spec=compileApiPlan(feature,{},catalog,[endpoint.id],{cases:[c],excluded:[]});
+ assert.equal(spec.scenarios[0].expected.database,undefined);assert.equal(spec.scenarios[0].expected.checks[0].value,'number');
+ assert.ok(spec.requirements.flatMap(r=>r.conditions).some(x=>x.description==='DB 저장 확인 불가: 등록된 행사'&&!x.requiredScenarios.length));
+});
+
 test('Given을 프로젝트 Fixture 없이 의도와 관찰 사실로 승인하고 스냅샷에 보존한다',async()=>{
  const catalog=await discoverControllers('fixtures/controller-api','src/test/java'),endpoint=catalog.endpoints[0];
  const feature={id:'native-example',name:'태그',scan:{id:'scan-1'},analysis:{summary:'다른 계정의 데이터는 표시하지 않는다',findings:[{text:'내 데이터',quote:'내 데이터만',nodeIds:['n1']}],questions:[]}};

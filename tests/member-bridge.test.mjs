@@ -104,6 +104,16 @@ test("AI가 조건 목록을 형식에 맞지 않게 돌려주면 한 번 더 �
   assert.equal(calls, 2);
 });
 
+test("AI 검사안이 거절되면 이유를 알려 한 번 더 요청한다", async () => {
+  const feature = { analysis: { findings: [{ text: "일정 조회", quote: "일정", nodeIds: ["n"] }], questions: [] }, scan: { images: [], nodes: [] }, name: "화면" };
+  const seen = [], conditions = { result: { conditions: [{ id: "c-1", kind: "value", findingIndices: [0], answerIndices: [] }] } };
+  const runtime = { analyze: async ({ instructions }) => { seen.push(instructions); return seen.length === 1 ? conditions : { result: { cases: "x" }, evidence: {} }; } };
+  await assert.rejects(proposeApiTests(feature, {}, { endpoints: [{ id: "e1", method: "GET", path: "/items" }] }, ["e1"], { runtime }), /항목을 읽지 못했어요/);
+  assert.equal(seen.length, 3);
+  assert.match(seen[2], /rejected: AI 검사안의 항목/);
+  assert.doesNotMatch(seen[1], /rejected:/);
+});
+
 test("개인 AI도 기본 AI도 없는 팀원에게는 내 AI 연결을 안내한다", async () => {
   const provider = { analyze: async () => "실행" };
   const missing = new AiRouter({ shared: true, providers: { codex: provider, claude: provider, gemini: provider }, hasDefault: async () => false });
