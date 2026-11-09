@@ -676,7 +676,7 @@ export async function createServer({
               f.approvedBy = { name: member(req), at: new Date().toISOString(), version: f.spec.version };
               return f;
             });
-            void publisher.automatic(id);
+            void publisher.automatic(id, undefined, await runtimeFor(req));
             return json(res, 200, result);
           }
           if (action === "spec" && req.method === "GET")
@@ -694,7 +694,7 @@ export async function createServer({
             ensure(destination?.parentId, "이 프로젝트에 명세서를 저장할 노션 페이지를 먼저 지정해 주세요.");
             const key = publicationKey(feature.spec, destination)+NOTION_LAYOUT;
             const cached = feature.publications?.[key];
-            return json(res, cached ? 200 : 201, await publisher.publish(id));
+            return json(res, cached ? 200 : 201, await publisher.publish(id, { runtime: await runtimeFor(req) }));
           }
         }
         if (route === "/api/settings" && req.method === "POST") {
@@ -794,7 +794,7 @@ export async function createServer({
               const code = await checkouts.forVerification(project, branch);
               const report = await verifyNativeJava({spec,outputRoot:runRoot,onProgress:(stage)=>{job.stage=stage;},backend:code?.repository || project.backend.repository,controllerFolder:project.backend.controllerFolder,runtime,model:state.settings.model || undefined,gate:workGate,codeVersion:code && {repo:code.repo,branch:code.branch,commit:code.commit,subject:code.subject}});
               await addRun(report, feature.projectId);
-              void publisher.automatic(feature.id,report);
+              void publisher.automatic(feature.id,report,runtime);
               await finished();
               job.status = "DONE";
               job.runId = report.id;

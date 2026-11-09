@@ -8,6 +8,7 @@ import { createServer } from "../server.mjs";
 import { AiRouter } from "../lib/ai-runtime.mjs";
 import { MemberBridge } from "../lib/member-bridge.mjs";
 import { runMemberAi } from "../lib/member-ai-client.mjs";
+import { proposeApiTests } from "../lib/api-plan.mjs";
 
 const host = "tool.example.com", member = "c".repeat(32), stranger = "d".repeat(32), link = "a".repeat(64);
 const schema = { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } };
@@ -88,4 +89,24 @@ test("작업 중 PC가 사라지거나 형식이 틀린 답이 오면 성공으�
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("AI가 조건 목록을 형식에 맞지 않게 돌려주면 한 번 더 요청한다", async () => {
+  const feature = { analysis: { findings: [{ text: "일정 조회", quote: "일정", nodeIds: ["n"] }], questions: [] }, scan: { images: [], nodes: [] }, name: "화면" };
+  const catalog = { endpoints: [{ id: "e1", method: "GET", path: "/items" }] }, bad = { result: { conditions: [{ id: "BAD ID", kind: "value", findingIndices: [0], answerIndices: [] }] } };
+  const good = { result: { conditions: [{ id: "c-1", kind: "value", findingIndices: [0], answerIndices: [] }] } };
+  let calls = 0;
+  const retried = { analyze: async () => { calls++; if (calls === 1) return bad; if (calls === 2) return good; throw new Error("다음 단계 도달"); } };
+  await assert.rejects(proposeApiTests(feature, {}, catalog, ["e1"], { runtime: retried }), /다음 단계 도달/);
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(proposeApiTests(feature, {}, catalog, ["e1"], { runtime: { analyze: async () => { calls++; return bad; } } }), /독립 항목/);
+  assert.equal(calls, 2);
+});
+
+test("Notion 명세 정리는 요청한 팀원의 AI로 실행한다", async () => {
+  const server = await readFile(new URL("../server.mjs", import.meta.url), "utf8");
+  assert.match(server, /publisher\.automatic\(id, undefined, await runtimeFor\(req\)\)/);
+  assert.match(server, /publisher\.publish\(id, \{ runtime: await runtimeFor\(req\) \}\)/);
+  assert.match(server, /publisher\.automatic\(feature\.id,report,runtime\)/);
 });
