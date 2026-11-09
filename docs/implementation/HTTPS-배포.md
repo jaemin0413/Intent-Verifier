@@ -10,7 +10,7 @@
 2. `docker compose -f deploy/docker-compose.yml up -d --build`로 시작한다.
 3. Gateway의 리버스 프록시는 **원래 Host 헤더를 유지**해 `http://<BIND_ADDRESS>:4318`로 전달한다. 앱은 `PUBLIC_ORIGIN`과 다른 Host를 거절한다.
 4. `docker exec figma-intent npm run deploy:prepare`로 팀에 줄 링크와 Figma 플러그인을 만든다.
-5. 앱의 왼쪽 아래 '관리자'로 들어가 프로젝트 설정 › 백엔드에 GitHub 저장소 주소와 기본 브랜치를 저장한다. 화면에 나온 공개키를 저장소의 Settings › Deploy keys에 추가하고(쓰기 권한은 끈다) '연결 확인'을 누른다. 저장소 Admin 권한이 필요하다.
+5. 앱의 왼쪽 아래 '관리자'로 들어가 프로젝트 설정 › 백엔드에 GitHub 저장소 주소와 기본 브랜치를 저장한다. 화면에 나온 공개키를 저장소의 Settings › Deploy keys에 추가하고(쓰기 권한은 끈다) '연결 확인'을 누른다. 저장소 Admin 권한이 필요하고, GitHub 조직이 배포 키를 막아 두었으면 등록이 거절되므로 조직 설정에서 먼저 허용한다.
 6. 기존 데이터를 옮길 때는 **먼저 개발 PC에서 새 버전을 한 번 실행**한다. 시작할 때 화면·이력을 기능별 파일로 분리한다. 분리 전 상태 파일은 서버의 128MB 힙으로 읽지 못한다. 그다음 볼륨에 복사하고 백엔드를 5번대로 GitHub 저장소에 다시 연결한다.
 
 ### 대상 코드
