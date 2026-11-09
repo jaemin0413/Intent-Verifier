@@ -72,7 +72,7 @@ export async function createServer({
   const memberClaudeHome = (id) => path.join(store.directory, "members", id, "claude");
   const workGate = new WorkGate();
   const bridge = remoteOrigin ? new MemberBridge({ file: path.join(store.directory, "member-bridge.json") }) : null;
-  runtime ??= new AiRouter({ shared: Boolean(remoteOrigin), secrets: () => store.secrets(), memberHome, memberClaudeHome, gate: workGate, bridge });
+  runtime ??= new AiRouter({ shared: Boolean(remoteOrigin), secrets: () => store.secrets(), memberHome, memberClaudeHome, gate: workGate, bridge, hasDefault: async () => Boolean((await store.load()).settings.aiProvider) });
   runtime.logDirectory = path.join(store.directory,"analysis-logs");
   const pairing = new PluginPairing(store);
   await store.init();

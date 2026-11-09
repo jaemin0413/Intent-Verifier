@@ -104,6 +104,13 @@ test("AI가 조건 목록을 형식에 맞지 않게 돌려주면 한 번 더 �
   assert.equal(calls, 2);
 });
 
+test("개인 AI도 기본 AI도 없는 팀원에게는 내 AI 연결을 안내한다", async () => {
+  const provider = { analyze: async () => "실행" };
+  const missing = new AiRouter({ shared: true, providers: { codex: provider, claude: provider, gemini: provider }, hasDefault: async () => false });
+  await assert.rejects(missing.analyze({}), /내 AI에서/);
+  assert.equal(await new AiRouter({ shared: true, providers: { codex: provider, claude: provider, gemini: provider } }).analyze({}), "실행");
+});
+
 test("Notion 명세 정리는 요청한 팀원의 AI로 실행한다", async () => {
   const server = await readFile(new URL("../server.mjs", import.meta.url), "utf8");
   assert.match(server, /publisher\.automatic\(id, undefined, await runtimeFor\(req\)\)/);
