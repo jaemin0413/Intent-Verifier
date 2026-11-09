@@ -22,6 +22,7 @@ test('접속 링크로 연결에 실패해도 다음 연결 시도는 새로 요
  let sessions=0;const c=localClient(async()=>{sessions++;return sessions===1?new Response('{}',{status:403}):Response.json({token:'t'});});
  await assert.rejects(c.connect(),/접속 링크/);await c.connect();assert.equal(sessions,2);
  const app=await readFile(new URL('../web/app.mjs',import.meta.url),'utf8');assert.match(app,/hashchange[\s\S]{0,160}if \(!state\) return boot\(\)/);
+ assert.match(app,/intent-form[\s\S]{0,500}backend\?\.repository\) \{ await discoverApis\(answers\); return; \}/);
  const css=await readFile(new URL('../web/style.css',import.meta.url),'utf8');assert.match(css,/\.btn\.primary\.small \{\s*background: var\(--accent\)/);
 });
 test('Codex 인증 실패·실행 실패·네트워크 오류는 작업을 자동 재실행하지 않는다',async()=>{

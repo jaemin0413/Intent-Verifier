@@ -180,7 +180,7 @@ aside nav {
 .btn.primary.small:hover {
   background: #3448a4;
 }
-.btn.loading::after {
+.btn.waiting::after {
   content: "";
   width: 12px;
   height: 12px;

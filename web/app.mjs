@@ -230,13 +230,13 @@ function intentView(x) {
 }
 function apiSelectionView(x) {
   if(x.apiStatus==='RUNNING') return '<h2>검사할 API를 찾고 있습니다</h2>';
-  if(x.apiStatus!=='DONE') return '<h2>이 화면과 관련된 API를 찾아보세요</h2><p>'+esc(x.apiStatusError || '')+'</p>'+btn('코드에서 검사할 API 찾기','discover','primary');
+  if(x.apiStatus!=='DONE') return '<h2>이 화면과 관련된 API를 찾아보세요</h2><p>'+esc(x.apiStatusError || '')+'</p>'+btn('코드에서 검사할 API 찾기','discover','primary')+btn('기획으로 명세 만들기','plan','text');
   const savedSelection=forms[x.id]?.apiSelection;
   const checkedIds=savedSelection?.catalog===x.apiCatalog?.digest ? savedSelection.ids : x.apiCandidates.filter(e=>e.recommended&&!e.excludedReason).slice(0,20).map(e=>e.id);
   const row=e=>'<label class="choice"><input type="checkbox" name="endpointId" value="'+esc(e.id)+'" '+(e.excludedReason?'disabled':checkedIds.includes(e.id)?'checked':'')+'><span><strong>'+esc(e.label)+'</strong><br><code>'+esc(e.method+' '+e.path)+'</code><br><small>'+esc(e.reason)+'</small><br><small>'+esc(e.file)+'</small></span></label>';
   const recommended=x.apiCandidates.filter(e=>e.recommended),others=x.apiCandidates.filter(e=>!e.recommended);
   const missing=x.apiMissing||[],missingRow=m=>'<label class="choice"><input type="checkbox" name="plannedApiId" value="'+esc(m.id)+'"><span><strong>'+esc(m.label)+'</strong><br><code>'+esc(m.method+' '+m.path)+'</code><br><small>'+esc(m.reason)+'</small></span></label>';
-  return '<h2>검사할 API를 골라 주세요</h2><form id="api-selection-form">'+recommended.map(row).join('')+(others.length?'<details '+(!recommended.length?'open':'')+'><summary>다른 API '+others.length+'개</summary>'+others.map(row).join('')+'</details>':'')+(missing.length?'<h3>코드에 없는 API가 있어요</h3><p class="hint">명세서에 ‘시작 전’으로 추가할 API를 골라 주세요.</p>'+missing.map(missingRow).join(''):'')+'</form>'+btn('API 다시 찾기','discover','text');
+  return '<h2>검사할 API를 골라 주세요</h2><form id="api-selection-form">'+recommended.map(row).join('')+(others.length?'<details '+(!recommended.length?'open':'')+'><summary>다른 API '+others.length+'개</summary>'+others.map(row).join('')+'</details>':'')+(missing.length?'<h3>코드에 없는 API가 있어요</h3><p class="hint">명세서에 ‘시작 전’으로 추가할 API를 골라 주세요.</p>'+missing.map(missingRow).join(''):'')+'</form><div class="actions">'+btn('API 다시 찾기','discover','text')+btn('기획으로 명세 만들기','plan','text')+'</div>';
 }
 function choiceQuestion(x,index,text,value) {
   const policies=projectPolicies(state.features,x,text);
@@ -732,12 +732,14 @@ document.addEventListener("submit", async (event) => {
     button =
       document.querySelector(`[form="${form.id}"]`) ||
       form.querySelector("[type=submit]");
-  if (button) { button.disabled = true; button.classList.add("loading"); }
+  if (button) { button.disabled = true; button.classList.add("waiting"); }
   try {
     if (form.id === "intent-form") {
       const answers = readAnswers(form);
       forms[activeId] = answers;
       save();
+      // With code connected the real API is picked first, so the spec does not carry a guessed path.
+      if (state.projects.find((p) => p.id === projectId)?.backend?.repository) { await discoverApis(answers); return; }
       await api(`/api/features/${activeId}/draft`, {...answers,planningMode:"intent"});
       await refresh();
       step = 2;
@@ -837,7 +839,7 @@ document.addEventListener("submit", async (event) => {
   } catch (e) {
     toast(e.message);
   } finally {
-    if (button) { button.disabled = false; button.classList.remove("loading"); }
+    if (button) { button.disabled = false; button.classList.remove("waiting"); }
   }
 });
 window.addEventListener("hashchange", async () => {
