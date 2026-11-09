@@ -1,0 +1,27 @@
+[Unit]
+Description=Figma intent verification workspace
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=figma-intent
+Group=figma-intent
+WorkingDirectory=/opt/figma-intent
+EnvironmentFile=/etc/figma-intent.env
+ExecStart=/usr/bin/node --max-old-space-size=128 --max-semi-space-size=8 /opt/figma-intent/server.mjs
+# Other services share this machine: past this limit only this service is stopped.
+MemoryMax=1100M
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+# Target builds are trusted code but should reach only their own folders and the tool's data.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/figma-intent /srv/figma-intent/backends
+
+[Install]
+WantedBy=multi-user.target

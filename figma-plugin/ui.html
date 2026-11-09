@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font:
+          12px/1.7 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: #334831;
+        background: #fbfcf8;
+        margin: 0;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 20px;
+        line-height: 1.5;
+        margin: 0 0 8px;
+        letter-spacing: -0.5px;
+      }
+      p {
+        color: #88947d;
+        font-size: 11px;
+        margin: 0 0 18px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: #738368;
+        margin: 12px 0 5px;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #dce5d3;
+        background: #fff;
+        border-radius: 7px;
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: 0;
+        border-radius: 8px;
+        padding: 11px;
+        font: inherit;
+        background: #345a3d;
+        color: white;
+        width: 100%;
+        margin-top: 16px;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      .secondary {
+        background: #edf2e6;
+        color: #687f57;
+      }
+      #selection {
+        background: #edf3e4;
+        border-radius: 8px;
+        padding: 13px;
+        margin: 17px 0;
+        font-size: 11px;
+        color: #6c8359;
+      }
+      #status {
+        margin: 12px 0;
+        font-size: 11px;
+        color: #877d57;
+        overflow-wrap: anywhere;
+      }
+      details {
+        margin: 12px 0;
+      }
+      summary {
+        cursor: pointer;
+        color: #8b967f;
+        font-size: 11px;
+      }
+      #open {
+        display: none;
+      }
+      .inline {
+        display: flex;
+        gap: 8px;
+      }
+      .inline button {
+        margin: 5px 0;
+        font-size: 11px;
+      }
+      small {
+        display: block;
+        color: #98a28e;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>화면을 고르고,<br />기획을 가져오세요.</h1>
+    <p>결정이 필요한 부분은 작업 공간에서 함께 확인해요.</p>
+    <div id="connection-state" role="status">프로젝트에 연결하고 있어요.</div>
+    <button id="connect" class="secondary" hidden>앱에서 다시 연결하기</button>
+    <details id="connection">
+      <summary>고급 설정</summary>
+      <label for="base">연결 주소</label><input id="base" value="http://localhost:4318" readonly />
+      <small>이 플러그인에 설정된 작업 공간에 연결합니다.</small>
+      <small id="storage-warning" hidden></small>
+      <button id="reconnect" class="secondary">다른 프로젝트로 연결</button>
+    </details>
+    <label for="project">연결된 프로젝트</label><select id="project" disabled><option value="">연결 중…</option></select>
+    <select id="sync-page" hidden></select>
+    <div id="selection">Figma에서 화면설계서를 드래그로 선택해 주세요.</div>
+    <button id="sync" disabled>선택한 화면설계서 저장</button>
+    <button id="sync-cancel" class="secondary" hidden>동기화 중단</button>
+    <div id="status" role="status"></div>
+    <button id="sync-retry" class="secondary" hidden>실패한 전송 다시 시도</button>
+    <small>선택한 설계서와 내부 설명을 통째로 저장합니다. 선택하지 않은 컴포넌트는 가져오지 않습니다. 완료하면 현재 보관함을 이 선택 범위로 갱신하며, 이전 수집 기록은 보존합니다.</small>
+    <details><summary>선택한 화면만 바로 분석하기</summary><label>가져올 위치</label><select id="feature"><option value="">새 기능</option></select>
+    <button id="scan" disabled>선택 화면 보내기</button>
+    </details>
+    <button id="open">작업 공간에서 확인하기 →</button
+    ><button id="download" class="secondary" hidden>전송 실패 · JSON 파일로 저장</button
+    ><small>화면 이미지와 구조를 함께 가져옵니다.</small>
+    <script>
+      const configuredOrigin = "http://localhost:4318";
+      const configuredAccess = "";
+      const $ = (id) => document.getElementById(id);
+      function appLink(value) {
+        const url = new URL(value);
+        if (configuredOrigin === "http://localhost:4318" && url.origin === "http://127.0.0.1:4318")
+          url.hostname = "localhost";
+        if (url.origin !== configuredOrigin) throw new Error("설정된 작업 공간 주소와 다릅니다.");
+        if (configuredAccess) {
+          const hash = new URLSearchParams(url.hash.slice(1));
+          hash.set("access", configuredAccess);
+          url.hash = hash.toString();
+        }
+        return url.href;
+      }
+      let features = [],
+        lastScan,
+        resultUrl, pendingTransfer, syncSession, syncProjectId, syncedCount = 0, syncTotal = 0, file, authToken = "", pairing, pairingTimer, pairingGeneration = 0;
+      function settings() {
+        return {
+          token: authToken,
+          base: $("base").value.replace(/\/$/, ""),
+          projectId: $("project").value,
+          pageId: $("sync-page").value,
+        };
+      }
+      function save() {
+        parent.postMessage(
+          { pluginMessage: { type: "save", settings: settings() } },
+          "*",
+        );
+      }
+      async function request(route, body) {
+        const s = settings();
+        const url = new URL(s.base);
+        if (url.origin !== configuredOrigin || url.pathname !== "/" || url.search || url.hash)
+          throw new Error("설정된 작업 공간 주소와 다릅니다.");
+        const response = await fetch(s.base + route, {
+          signal: AbortSignal.timeout(20000),
+          method: body ? "POST" : "GET",
+          headers: {
+            Authorization: "Bearer " + s.token,
+            "Content-Type": "application/json",
+            ...(configuredAccess ? {"X-App-Key": configuredAccess} : {}),
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "연결 요청에 실패했습니다.");
+        return data;
+      }
+      function updateFeatures() {
+        const el = $("feature");
+        el.innerHTML = "";
+        el.add(new Option("새 기능", ""));
+        for (const f of features.filter(
+          (f) => f.projectId === $("project").value,
+        ))
+          el.add(new Option(f.name + " 업데이트", f.id));
+        save();
+      }
+      function connected(value) {
+        $("sync").disabled = !value;
+        $("scan").disabled = !value;
+        $("connect").hidden = value;
+      }
+      async function connect(projectId) {
+        const data = await request("/api/plugin/projects");
+        features = data.features;
+        $("project").innerHTML = "";
+        for (const p of data.projects) $("project").add(new Option(p.name, p.id));
+        const selected = data.projects.find((p) => p.id === projectId) || data.projects[0];
+        if (!selected) throw new Error("연결할 프로젝트가 없습니다. 앱에서 프로젝트를 만들어 주세요.");
+        $("project").value = selected.id;
+        updateFeatures();
+        connected(true);
+        $("connection").open = false;
+        $("connection-state").textContent = selected.name + "에 연결됨";
+        $("status").textContent = "Figma에서 화면설계서를 드래그로 선택하고 저장해 주세요.";
+      }
+      async function startPairing() {
+        const generation = ++pairingGeneration;
+        clearTimeout(pairingTimer);
+        connected(false);
+        authToken = "";
+        $("connect").hidden = true;
+        $("connection-state").textContent = "앱에서 연결할 프로젝트를 확인해 주세요.";
+        try {
+          if (!file) throw new Error("Figma 파일 정보를 기다리고 있습니다. 잠시 후 다시 연결해 주세요.");
+          pairing = await request("/api/plugin/pair/start", file);
+          const appUrl = new URL(settings().base);
+          appUrl.hash = "pair=" + pairing.id;
+          const url = appLink(appUrl.href);
+          parent.postMessage({ pluginMessage: { type: "open", url } }, "*");
+          async function poll() {
+            if (generation !== pairingGeneration) return;
+            try {
+              const result = await request("/api/plugin/pair/claim", { id: pairing.id, claim: pairing.claim });
+              if (generation !== pairingGeneration) return;
+              if (result.status === "CONNECTED") {
+                authToken = result.token;
+                await connect(result.projectId);
+              } else pairingTimer = setTimeout(poll, 1500);
+            } catch (error) { failed(error); }
+          }
+          await poll();
+        } catch (error) { failed(error); }
+      }
+      function failed(error) {
+        connected(false);
+        $("project").innerHTML = '<option value="">아직 연결되지 않았어요</option>';
+        $("connection-state").textContent = "앱 연결을 확인해 주세요.";
+        $("status").textContent = "앱이 켜져 있는지 확인한 뒤 다시 연결해 주세요. " + error.message;
+      }
+      function endSync() {
+        $("sync").disabled = false;
+        $("sync-cancel").hidden = true;
+        $("sync-retry").hidden = true;
+      }
+      async function uploadTransfer() {
+        const message = pendingTransfer;
+        if (!message) return;
+        $("sync-retry").hidden = true;
+        try {
+          if (message.type === "library-start") {
+            const session = await request("/api/plugin/library/begin", {...message.library, projectId:syncProjectId});
+            if (pendingTransfer !== message) return;
+            syncSession = session.id; syncedCount=0; syncTotal=message.library.screenIds.length;
+          } else if (message.type === "library-screen") {
+            await request("/api/plugin/library/screen",{projectId:syncProjectId,sessionId:syncSession,screen:message.screen});
+            if (pendingTransfer !== message) return;
+            syncedCount++;
+            $("status").textContent = `${syncedCount} / ${syncTotal}개 전송 완료 · 모든 화면을 받은 뒤 보관함에 표시합니다.`;
+          } else {
+            await request("/api/plugin/library/complete",{projectId:syncProjectId,sessionId:syncSession,captureFinishedAt:message.captureFinishedAt});
+            if (pendingTransfer !== message) return;
+            $("status").textContent = `${syncTotal}개 화면을 앱에 저장했어요. ‘화면 선택하기’에서 기획 확인을 시작하세요.`;
+            const url=new URL(settings().base); url.hash=`project=${encodeURIComponent(syncProjectId)}&library=1`;
+            resultUrl=appLink(url.href);
+            $("open").textContent="앱에서 보관된 화면 보기 →";
+            $("open").style.display="block";
+            endSync(); save();
+          }
+          if (pendingTransfer !== message) return;
+          pendingTransfer=undefined;
+          parent.postMessage({pluginMessage:{type:"sync-ack",requestId:message.requestId}},"*");
+        } catch(error) {
+          if (pendingTransfer !== message) return;
+          $("status").textContent="전송이 멈췄습니다. 이전 완료본은 유지됩니다. " + error.message;
+          $("sync-retry").hidden=false;
+        }
+      }
+      $("sync").onclick = () => {
+        if (!authToken || !$("project").value) return startPairing();
+        syncProjectId = $("project").value;
+        pendingTransfer = undefined; syncSession = undefined;
+        $("sync").disabled = true;
+        $("sync-cancel").hidden = false;
+        $("sync-cancel").disabled = false;
+        $("open").style.display = "none";
+        $("sync-retry").hidden = true;
+        $("status").textContent = "선택한 화면설계서를 한 개씩 저장하고 있어요.";
+        parent.postMessage({ pluginMessage: { type: "sync-selection" } }, "*");
+      };
+      $("sync-retry").onclick = uploadTransfer;
+      $("sync-cancel").onclick = () => {
+        pendingTransfer=undefined;
+        parent.postMessage({pluginMessage:{type:"sync-cancel"}},"*");
+        $("sync-cancel").disabled = true;
+        $("sync-retry").hidden = true;
+        $("status").textContent="동기화를 중단하고 있습니다. 이전 완료본은 유지됩니다.";
+      };
+      $("sync-page").onchange = save;
+      $("connect").onclick = startPairing;
+      $("reconnect").onclick = startPairing;
+      $("project").onchange = updateFeatures;
+      $("scan").onclick = () => {
+        if (!authToken || !$("project").value) return startPairing();
+        $("scan").disabled = true;
+        $("download").hidden = true;
+        $("open").style.display = "none";
+        $("status").textContent = "선택한 화면과 구조를 가져오고 있어요.";
+        parent.postMessage({ pluginMessage: { type: "scan" } }, "*");
+      };
+      $("open").onclick = () =>
+        parent.postMessage(
+          { pluginMessage: { type: "open", url: resultUrl } },
+          "*",
+        );
+      $("download").onclick = () => {
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(lastScan, null, 2)], {
+            type: "application/json",
+          }),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "figma-scan.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      window.onmessage = async (event) => {
+        const m = event.data.pluginMessage;
+        if (!m) return;
+        if (m.type === "storage-error") {
+          $("storage-warning").hidden = false;
+          $("storage-warning").textContent = "연결 정보를 저장하지 못했습니다. 다음 실행 때 다시 연결해야 합니다. " + m.message;
+          $("status").textContent = "현재 연결은 사용할 수 있지만 저장하지 못했습니다. 고급 설정을 확인해 주세요.";
+        }
+        if (m.type === "pages") {
+          $("sync-page").innerHTML = "";
+          for (const p of m.pages) $("sync-page").add(new Option(p.name, p.id));
+          $("sync-page").value = m.currentPageId;
+        }
+        if (m.type === "sync-progress") $("status").textContent = m.message;
+        if (m.type === "sync-error") { $("status").textContent = m.message; endSync(); }
+        if (["library-start","library-screen","library-complete"].includes(m.type)) {
+          pendingTransfer=m;
+          await uploadTransfer();
+        }
+        if (m.type === "settings") {
+          file = m.file;
+          if (m.storageError) {
+            $("storage-warning").hidden = false;
+            $("storage-warning").textContent = "연결 정보 저장소를 사용할 수 없습니다. " + m.storageError;
+          }
+          $("base").value = configuredOrigin;
+          if (m.settings.pageId && Array.from($("sync-page").options).some((p) => p.value === m.settings.pageId)) $("sync-page").value = m.settings.pageId;
+          if (m.settings.token) {
+            authToken = m.settings.token;
+            try { await connect(m.settings.projectId); } catch { await startPairing(); }
+          } else await startPairing();
+        }
+        if (m.type === "selection")
+          $("selection").textContent = m.count
+            ? m.count + "개 선택 · " + m.names.slice(0, 2).join(", ") + (m.count > 2 ? " 외 " + (m.count - 2) + "개" : "")
+            : "Figma에서 화면을 선택해 주세요.";
+        if (m.type === "error") {
+          $("scan").disabled = false;
+          $("status").textContent = m.message;
+        }
+        if (m.type === "scan") {
+          lastScan = m.scan;
+          $("download").hidden = true;
+          try {
+            $("status").textContent = "선택한 화면을 앱으로 보내고 있어요.";
+            const result = await request("/api/plugin/scans", {
+              projectId: $("project").value,
+              featureId: $("feature").value || undefined,
+              scan: lastScan,
+            });
+            resultUrl = appLink(result.url);
+            $("open").style.display = "block";
+            $("status").textContent =
+              "화면을 저장했어요. 작업 공간에서 Codex 분석 상태와 질문을 확인하세요.";
+            save();
+          } catch (e) {
+            $("download").hidden = false;
+            $("status").textContent =
+              "자동 전송에 실패했어요. 연결을 확인하고 다시 보내 주세요. 계속 실패하면 JSON으로 저장한 뒤 앱의 프로젝트 설정 › Figma › 파일로 가져오기를 이용해 주세요. " + e.message;
+          } finally {
+            $("scan").disabled = false;
+          }
+        }
+      };
+      parent.postMessage({ pluginMessage: { type: "ready" } }, "*");
+    </script>
+  </body>
+</html>

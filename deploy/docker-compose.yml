@@ -1,0 +1,65 @@
+name: figma-intent
+
+services:
+  figma-intent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: figma-intent:latest
+    container_name: figma-intent
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4318"
+      APP_DATA_DIR: /data
+      HOME: /data/home
+      CONTAINER_NAME: figma-intent
+      BUILD_RUNNER_URL: http://build-runner:4319
+      BUILD_WORKSPACE: /workspace
+    ports:
+      - "${BIND_ADDRESS:?deploy/.env에 BIND_ADDRESS를 지정해 주세요}:4318:4318"
+    volumes:
+      - data:/data
+      - workspace:/workspace
+    depends_on:
+      - build-runner
+    # Other services share this VM: past this limit only this container is stopped.
+    mem_limit: 850m
+    memswap_limit: 850m
+    pids_limit: 512
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # Target project code runs here. It gets no keys: no env file and no access to the data volume.
+  build-runner:
+    image: figma-intent:latest
+    container_name: figma-intent-build-runner
+    restart: unless-stopped
+    init: true
+    command: ["node", "--max-old-space-size=32", "scripts/build-runner.mjs"]
+    environment:
+      PORT: "4319"
+      HOME: /gradle
+      GRADLE_USER_HOME: /gradle
+      BUILD_WORKSPACE: /workspace
+    volumes:
+      - workspace:/workspace
+      - gradle:/gradle
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: 1000m
+    memswap_limit: 1000m
+    pids_limit: 512
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  data:
+  workspace:
+  gradle:

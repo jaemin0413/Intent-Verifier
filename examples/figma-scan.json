@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "source": "synthetic-example-not-real-figma",
+  "fileName": "직접 만든 연동 테스트 데이터",
+  "pageName": "게시글 삭제 흐름",
+  "nodes": [
+    { "id": "example:1", "name": "게시글 상세", "type": "FRAME", "children": [
+      { "id": "example:2", "parentId": "example:1", "name": "삭제 버튼", "type": "TEXT", "text": "삭제" }
+    ] },
+    { "id": "example:3", "name": "삭제 확인", "type": "FRAME", "children": [
+      { "id": "example:4", "parentId": "example:3", "name": "안내", "type": "TEXT", "text": "게시글을 삭제할까요?" },
+      { "id": "example:5", "parentId": "example:3", "name": "실행", "type": "TEXT", "text": "삭제하기" }
+    ] }
+  ],
+  "images": []
+}

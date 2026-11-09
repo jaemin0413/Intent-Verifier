@@ -1,0 +1,19 @@
+{
+  "feature": { "id": "post-delete", "name": "게시글 삭제", "description": "작성자는 자신의 게시글을 삭제할 수 있고, 다른 사용자는 삭제할 수 없습니다." },
+  "version": 1,
+  "requirements": [{
+    "id": "REQ-POST-001", "version": 1,
+    "description": "작성자만 자신의 게시글을 삭제할 수 있다.",
+    "evidenceStatus": "INFERRED", "origin": "planning-example",
+    "evidence": { "excerpt": "기획안 21~23항의 게시글 삭제 예시. Figma에서 확인된 사실이 아닌 실험용 기준." },
+    "conditions": [
+      { "id": "owner", "description": "작성자는 삭제할 수 있다", "requiredScenarios": ["SCN-OWNER"] },
+      { "id": "non-owner", "description": "다른 사용자는 삭제할 수 없으며 게시글이 유지된다", "requiredScenarios": ["SCN-OTHER"] }
+    ]
+  }],
+  "contract": { "id": "API-DELETE", "version": 1, "method": "DELETE", "path": "/posts/{postId}", "authentication": "authenticated-user", "success": 204, "forbidden": 403 },
+  "scenarios": [
+    { "id": "SCN-OWNER", "version": 1, "requirementVersion": 1, "contractVersion": 1, "conditionId": "owner", "name": "내 게시글 삭제", "behavior": "ownership-delete", "actor": { "id": "user-a", "state": "normal_authenticated_user" }, "target": { "resource": "post", "id": 101, "owner": "user-a" }, "relation": { "actorIsOwner": true }, "preconditions": { "exists": true, "targetState": "normal" }, "action": { "method": "DELETE", "path": "/posts/{postId}" }, "expected": { "status": 204, "targetExists": false }, "observations": ["response.status", "target.exists"] },
+    { "id": "SCN-OTHER", "version": 1, "requirementVersion": 1, "contractVersion": 1, "conditionId": "non-owner", "name": "다른 사람의 게시글 삭제", "behavior": "ownership-delete", "actor": { "id": "user-b", "state": "normal_authenticated_user" }, "target": { "resource": "post", "id": 101, "owner": "user-a" }, "relation": { "actorIsOwner": false }, "preconditions": { "exists": true, "targetState": "normal" }, "action": { "method": "DELETE", "path": "/posts/{postId}" }, "expected": { "status": 403, "targetExists": true }, "observations": ["response.status", "target.exists", "target.owner", "target.state"] }
+  ]
+}

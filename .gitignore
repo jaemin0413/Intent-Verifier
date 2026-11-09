@@ -1,0 +1,20 @@
+node_modules/
+.tools/
+.local/
+.local-preview/
+.verification/
+target/
+.env
+output/
+.playwright-cli/
+.claude/
+# Records of real team projects: names, file keys, links and requirements stay out of the public repository.
+docs/검증결과.md
+docs/전체-H2-일괄검사.md
+docs/전체QA-2026-09-23.md
+docs/H2-스크랩-통합검증.md
+docs/H2-조건검증-개정결과.md
+docs/초기기획-대비-기능검수.md
+docs/evidence/
+docs/experiments/2026-09-24-제품흐름-전환.md
+docs/experiments/2026-11-09-전체화면-검사.md

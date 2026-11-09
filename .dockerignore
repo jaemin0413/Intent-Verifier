@@ -1,0 +1,17 @@
+.git
+.claude
+.local
+.local-preview
+.tools
+.verification
+.playwright-cli
+node_modules
+output
+target
+docs
+tests
+fixtures
+examples
+deploy/.env
+*.cmd
+*.ps1

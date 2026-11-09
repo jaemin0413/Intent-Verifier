@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+import {versionDraft} from '../lib/spec-versions.mjs';import {approve,isApproved,validateSpec} from '../lib/domain.mjs';
+const spec=JSON.parse(await readFile(new URL('../examples/post-delete.json',import.meta.url),'utf8'));
+test('Scenario만 고치면 Requirement와 Contract 버전은 유지한다',()=>{const draft=structuredClone(spec);draft.scenarios[0].name+=' 수정';versionDraft(draft,spec);assert.equal(draft.version,2);assert.equal(draft.contract.version,1);assert.equal(draft.requirements[0].version,1);assert.equal(draft.scenarios[0].version,2);assert.equal(draft.scenarios[1].version,1);validateSpec(draft);assert.ok(isApproved(approve(draft)));});
+test('관련 Requirement가 바뀐 Scenario만 참조 버전과 자체 버전을 갱신한다',()=>{const draft=structuredClone(spec);draft.requirements[0].description+=' 명확화';versionDraft(draft,spec);assert.equal(draft.contract.version,1);assert.equal(draft.requirements[0].version,2);for(const s of draft.scenarios){const related=draft.requirements[0].conditions.some(c=>c.id===s.conditionId);assert.equal(s.requirementVersion,related?2:1);}validateSpec(draft);});

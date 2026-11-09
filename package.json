@@ -1,0 +1,21 @@
+{
+  "name": "verification-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "deploy:prepare": "node scripts/deploy-prep.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node cli.mjs verify",
+    "prove": "node scripts/prove-builds.mjs",
+    "prove:native": "node scripts/prove-native.mjs",
+    "prove:builds": "node scripts/prove-builds.mjs"
+  },
+  "bin": {
+    "tool": "./cli.mjs"
+  }
+}
