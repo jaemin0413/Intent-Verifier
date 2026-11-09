@@ -112,7 +112,8 @@ sudo systemctl reload nginx
 - **Gemini:** Google AI Studio API 키를 입력한다. 별도 CLI는 필요 없다. 무료 등급의 데이터 처리 조건은 사용 전에 Google 약관에서 확인한다. Figma 내용과 Backend 소스가 전송된다.
 - **Codex(팀 공용):** 서비스 계정으로 `codex login --device-auth`를 실행한다. 브라우저 로그인은 서버의 localhost로 돌아오므로 팀원 PC에서 쓸 수 없다. 개인 구독을 팀이 함께 쓰는 것이 허용되는지는 OpenAI 약관에서 직접 확인한다.
 - **Codex(팀원 개인):** 팀원이 ‘내 AI’에서 ‘ChatGPT로 로그인’을 누르면 서버가 그 팀원 전용 Codex 홈(`APP_DATA_DIR/members/<개인 코드>/codex`)에서 `codex login --device-auth`를 실행하고 주소와 일회용 코드를 화면에 보여 준다. 팀원은 자기 PC 브라우저에서 ChatGPT에 로그인해 코드를 입력한다(ChatGPT 설정 › 보안에서 기기 코드 로그인 허용 필요, 15분 제한). 연결된 뒤 그 팀원의 해석·기준 작성·검사 요청은 그 계정으로 실행되고 결과 기록에 `account: member`가 남는다. 개인 코드는 브라우저가 보관하며 다른 기기에서는 코드를 입력해 이어 쓴다.
-- **Claude(팀원 개인):** 팀원이 ‘내 AI’에서 ‘Claude 연결’을 누르면 그 팀원 전용 폴더(`APP_DATA_DIR/members/<개인 코드>/claude`)와 실행할 명령이 표시된다. 서버 터미널에서 그 명령을 실행하면 공식 CLI가 주소를 출력하고, 본인 브라우저에서 Anthropic에 로그인해 받은 코드를 같은 터미널에 붙여 넣는다. 앱은 코드와 토큰을 받거나 읽지 않는다(Anthropic은 앱이 Claude 로그인을 제공하거나 코드·토큰을 중개하는 것을 허용하지 않는다). 연결된 뒤 그 팀원의 요청만 그 계정으로 실행되고 결과 기록에 `account: member`가 남는다. 서버 터미널에 접근할 수 없는 팀원은 Codex나 기본 AI를 쓴다. ChatGPT와 Claude를 모두 연결하면 Claude를 쓴다.
+- **Claude(팀원 PC):** 팀원이 ‘내 AI’에서 ‘Claude 연결’을 누르면 연결 명령이 표시된다. 자기 PC의 터미널에서 실행하면 그 PC에 로그인된 공식 Claude CLI가 그 팀원의 요청만 처리한다. SSH가 필요 없고 Claude 로그인 코드와 토큰은 PC를 벗어나지 않는다. 서버에는 앱 자체 연결 토큰의 해시만 저장한다. Node.js 22 이상과 로그인된 Claude Code가 필요하고, 쓰는 동안 창을 켜 둔다. 창이 꺼져 있으면 기본 AI로 넘기지 않고 안내를 보여 준다.
+- **Claude(서버 터미널):** ‘Claude 연결’ 뒤 ‘서버 터미널에서 로그인’을 누르면 그 팀원 전용 폴더(`APP_DATA_DIR/members/<개인 코드>/claude`)와 실행할 명령이 표시된다. 서버 터미널에서 그 명령을 실행하면 공식 CLI가 주소를 출력하고, 본인 브라우저에서 Anthropic에 로그인해 받은 코드를 같은 터미널에 붙여 넣는다. 앱은 코드와 토큰을 받거나 읽지 않는다(Anthropic은 앱이 Claude 로그인을 제공하거나 코드·토큰을 중개하는 것을 허용하지 않는다). 연결된 뒤 그 팀원의 요청만 그 계정으로 실행되고 결과 기록에 `account: member`가 남는다. 서버 터미널에 접근할 수 없는 팀원은 Codex나 기본 AI를 쓴다. ChatGPT와 Claude를 모두 연결하면 Claude를 쓴다.
 
 Notion 기능명세서 읽기는 프로젝트 설정의 Notion API 키를 쓰므로, 읽을 페이지의 ‘연결’ 메뉴에 그 API 연결을 추가해 둔다. 서버는 15분마다 연결된 문서를 다시 읽어 바뀐 경우 해당 기능에 표시한다.
 

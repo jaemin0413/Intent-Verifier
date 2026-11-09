@@ -47,7 +47,7 @@ let memberName = localStorage.getItem("member-name") || "";
 let memberId = /^[a-f0-9]{32}$/.test(localStorage.getItem("member-id") || "") ? localStorage.getItem("member-id") : crypto.randomUUID().replaceAll("-", "");
 localStorage.setItem("member-id", memberId);
 let operatorKey = sessionStorage.getItem("operator-key") || "";
-let memberAi = null;
+let memberAi = null, memberPcCommand = "";
 const branchLists = {};
 const selectedBranch = (p = state.projects.find((x) => x.id === projectId)) => (p?.backend?.source === "github" ? localStorage.getItem("branch:" + p.id) || p.backend.branch : undefined);
 const sources = {};
@@ -381,9 +381,10 @@ function memberAiPanel() {
   const body = !m ? '<p class="hint"><span class="spinner"></span></p>'
     // The one-line code notice stays: Codex itself tells people to cancel codes that a site handed them.
     : m.status === "LOGIN_WAITING" ? `<p>아래 주소에서 <strong>내 ChatGPT 계정</strong>으로 로그인하고 코드를 입력하세요.</p><p><a class="btn secondary small" href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a> <code class="device-code">${esc(m.code)}</code></p><p class="hint">이 창에서 내가 직접 시작한 로그인의 코드입니다.</p>${btn("로그인 완료 확인", "member-codex-check", "primary small")}${btn("취소", "member-codex-logout", "text small")}`
+    : m.status === "PC_WAITING" ? `${memberPcCommand ? `<p><strong>내 PC의 터미널</strong>에 붙여 넣고 창을 켜 두세요.</p><pre>${esc(memberPcCommand)}</pre><p class="hint">Node.js 22와 로그인된 Claude Code가 필요합니다.</p>${btn("연결 확인", "member-codex-check", "primary small")}` : `<p>내 PC의 연결 창이 꺼져 있어요.</p>${btn("명령 다시 받기", "member-pc-start", "primary small")}`}${btn("취소", "member-codex-logout", "text small")}${btn("서버 터미널에서 로그인", "member-claude-login", "text small")}`
     : m.status === "CLAUDE_LOGIN" ? `<p>서버 터미널에서 실행하고 <strong>내 Claude 계정</strong>으로 로그인하세요.</p><pre>${esc(m.command)}</pre>${btn("로그인 완료 확인", "member-codex-check", "primary small")}${btn("취소", "member-codex-logout", "text small")}`
     : m.status === "CONNECTED" ? `<p><span class="badge PASS">${m.provider === "claude" ? "Claude" : "ChatGPT"} 연결됨${m.plan ? " · " + esc(m.plan) : ""}</span></p>${btn("연결 해제", "member-codex-logout", "small")}`
-    : `${m.message ? `<p class="hint">${esc(m.message)}</p>` : ""}${m.detail ? `<details><summary>오류 상세</summary><pre>${esc(m.detail)}</pre></details>` : ""}${btn("ChatGPT로 로그인", "member-codex-login", "primary small")}${btn("Claude 연결", "member-claude-login", "small")}<p class="hint">ChatGPT 설정 › 보안에서 기기 코드 로그인을 허용해 주세요.</p>`;
+    : `${m.message ? `<p class="hint">${esc(m.message)}</p>` : ""}${m.detail ? `<details><summary>오류 상세</summary><pre>${esc(m.detail)}</pre></details>` : ""}${btn("ChatGPT로 로그인", "member-codex-login", "primary small")}${btn("Claude 연결", "member-pc-start", "small")}<p class="hint">ChatGPT 설정 › 보안에서 기기 코드 로그인을 허용해 주세요.</p>`;
   return `<article class="provider ${m?.status === "CONNECTED" ? "active" : ""}"><div class="provider-head"><strong>내 AI</strong></div>${body}</article>`;
 }
 async function loadMemberAi() {
@@ -558,6 +559,10 @@ document.addEventListener("click", async (event) => {
       else if (discoverAfterConnect) { discoverAfterConnect = false; dialog.close(); await discoverApis(forms[activeId]); }
       else if (verifyAfterConnect) { verifyAfterConnect = false; dialog.close(); await startVerify(); }
       else toast("GitHub 저장소를 연결했습니다.");
+    } else if (a === "member-pc-start") {
+      b.disabled = true;
+      memberPcCommand = (await api("/api/ai/member/pc/start", {})).command;
+      await settingsDialog();
     } else if (a === "member-claude-login") {
       b.disabled = true;
       await api("/api/ai/member/claude/login", {});
@@ -565,7 +570,7 @@ document.addEventListener("click", async (event) => {
     } else if (a === "member-codex-check") {
       b.disabled = true;
       await loadMemberAi();
-      toast(memberAi.status === "CONNECTED" ? "내 AI를 연결했습니다." : ["LOGIN_WAITING", "CLAUDE_LOGIN"].includes(memberAi.status) ? "아직 로그인이 끝나지 않았어요. 로그인을 마친 뒤 다시 확인해 주세요." : memberAi.message || "연결을 확인하지 못했어요.");
+      toast(memberAi.status === "CONNECTED" ? "내 AI를 연결했습니다." : ["LOGIN_WAITING", "CLAUDE_LOGIN", "PC_WAITING"].includes(memberAi.status) ? "아직 로그인이 끝나지 않았어요. 로그인을 마친 뒤 다시 확인해 주세요." : memberAi.message || "연결을 확인하지 못했어요.");
       await settingsDialog();
     } else if (a === "member-codex-logout") {
       b.disabled = true;

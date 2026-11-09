@@ -21,7 +21,10 @@ async function api(route, body) {
   return data;
 }
 try {
-  if (command === "verify") {
+  if (command === "member-ai") {
+    const { runMemberAi } = await import("./lib/member-ai-client.mjs");
+    await runMemberAi({ url: value("--url"), token: value("--token") });
+  } else if (command === "verify") {
     const projectId = value("--project") || "local";
     const data = await api("/api/state");
     const project = data.projects.find((p) => p.id === projectId);

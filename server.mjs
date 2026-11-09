@@ -37,6 +37,7 @@ import {suggestChoices} from "./lib/intent-options.mjs";
 import {verifyNativeJava} from "./lib/native-java-runner.mjs";
 import { accessKey, keyMatches, publicOrigin } from './lib/deployment.mjs';
 import { WorkGate } from './lib/work-gate.mjs';
+import { MemberBridge } from './lib/member-bridge.mjs';
 import { BackendCheckouts, parseGithubRepository, validBranch } from './lib/backend-checkout.mjs';
 import { readDocuments, readNotionDocument, attachDocuments } from './lib/notion-documents.mjs';
 
@@ -70,7 +71,8 @@ export async function createServer({
   const memberHome = (id) => path.join(store.directory, "members", id, "codex");
   const memberClaudeHome = (id) => path.join(store.directory, "members", id, "claude");
   const workGate = new WorkGate();
-  runtime ??= new AiRouter({ shared: Boolean(remoteOrigin), secrets: () => store.secrets(), memberHome, memberClaudeHome, gate: workGate });
+  const bridge = remoteOrigin ? new MemberBridge({ file: path.join(store.directory, "member-bridge.json") }) : null;
+  runtime ??= new AiRouter({ shared: Boolean(remoteOrigin), secrets: () => store.secrets(), memberHome, memberClaudeHome, gate: workGate, bridge });
   runtime.logDirectory = path.join(store.directory,"analysis-logs");
   const pairing = new PluginPairing(store);
   await store.init();
@@ -306,6 +308,15 @@ export async function createServer({
         if (remoteOrigin && !keyMatches(req.headers['x-app-key'], remoteKey)) return json(res,403,{code:'LINK_REQUIRED',error:'접속 링크를 확인해 주세요.'});
         return json(res, 200, pairing.claim(await body(req)));
       }
+      const bridgeRoute = route.match(/^\/api\/member-ai\/(next|result)$/);
+      if (bridgeRoute && bridge && req.method === "POST") {
+        const member = await bridge.memberOf((req.headers.authorization || "").replace(/^Bearer /, ""));
+        if (!member) return json(res, 401, { code: "MEMBER_AI_TOKEN", error: "연결이 해제됐습니다. 내 AI에서 명령을 다시 받아 주세요." });
+        if (bridgeRoute[1] === "result") { bridge.finish(member, await body(req)); return json(res, 200, { ok: true }); }
+        const job = await bridge.next(member, res);
+        if (!job) { res.writeHead(204); return res.end(); }
+        return json(res, 200, job);
+      }
       if (route.startsWith("/api/")) {
         const state = await store.load();
         const connection = state.pluginConnections?.find((c) => req.headers.authorization === `Bearer ${c.token}`);
@@ -417,6 +428,10 @@ export async function createServer({
         if (route === "/api/ai/member/codex/login" && req.method === "POST") {
           ensure(runtime.startMemberLogin, "이 서버는 팀원 개인 AI 연결을 지원하지 않습니다.");
           return json(res, 200, await runtime.startMemberLogin(memberId(req)));
+        }
+        if (route === "/api/ai/member/pc/start" && req.method === "POST") {
+          ensure(bridge && memberId(req), "내 이름과 개인 코드를 먼저 저장해 주세요.");
+          return json(res, 200, { status: "PC_WAITING", command: `npx -y github:jaemin0413/Intent-Verifier member-ai --url ${remoteOrigin} --token ${await bridge.issue(memberId(req))}` });
         }
         if (route === "/api/ai/member/claude/login" && req.method === "POST") {
           ensure(runtime.startMemberClaudeLogin, "이 서버는 팀원 개인 AI 연결을 지원하지 않습니다.");
@@ -872,7 +887,7 @@ export async function createServer({
     }
   });
   server.on("close", () => { runtime.close?.(); if (documentTimer) clearInterval(documentTimer); });
-  return { server, store, publicOrigin: origin, checkDocuments };
+  return { server, store, runtime, publicOrigin: origin, checkDocuments };
 }
 if (
   process.argv[1] &&
