@@ -732,7 +732,7 @@ document.addEventListener("submit", async (event) => {
     button =
       document.querySelector(`[form="${form.id}"]`) ||
       form.querySelector("[type=submit]");
-  if (button) button.disabled = true;
+  if (button) { button.disabled = true; button.classList.add("loading"); }
   try {
     if (form.id === "intent-form") {
       const answers = readAnswers(form);
@@ -837,10 +837,12 @@ document.addEventListener("submit", async (event) => {
   } catch (e) {
     toast(e.message);
   } finally {
-    if (button) button.disabled = false;
+    if (button) { button.disabled = false; button.classList.remove("loading"); }
   }
 });
 window.addEventListener("hashchange", async () => {
+  // A tab that never connected has nothing to update: start over with the link just pasted.
+  if (!state) return boot();
   const pairingId = new URLSearchParams(location.hash.slice(1)).get("pair");
   if (pairingId) { try { await pairingDialog(pairingId); } catch (e) { toast(e.message); } return; }
   const params = new URLSearchParams(location.hash.slice(1));
@@ -912,7 +914,7 @@ setInterval(async () => {
     busy = false;
   }
 }, 1500);
-try {
+async function boot() { try {
   await client.connect();
   await refresh();
   if (activeId && f()) {
@@ -932,4 +934,5 @@ try {
   else if (new URLSearchParams(location.hash.slice(1)).get("library")==="1") await libraryDialog();
 } catch (e) {
   app.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
-}
+} }
+await boot();

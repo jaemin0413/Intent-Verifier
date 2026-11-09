@@ -880,6 +880,11 @@ if (
 ) {
   const port = Number(process.env.PORT || 4318);
   const { server } = await createServer({ port });
+  server.on("error", (e) => {
+    if (e.code !== "EADDRINUSE") throw e;
+    console.error(`이미 ${port}번 포트에서 실행 중입니다. http://127.0.0.1:${port} 을 열거나, 실행 중인 창을 먼저 닫아 주세요.`);
+    process.exit(1);
+  });
   server.listen(port, process.env.HOST || "127.0.0.1", () =>
     console.log(`${process.env.PUBLIC_ORIGIN ? 'HTTPS 프록시 주소' : '개발 검증 화면'}: ${process.env.PUBLIC_ORIGIN || `http://127.0.0.1:${port}`}\n종료: Ctrl+C`),
   );

@@ -173,6 +173,22 @@ aside nav {
   background: #fff;
   padding: 7px 12px;
 }
+.btn.primary.small {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn.primary.small:hover {
+  background: #3448a4;
+}
+.btn.loading::after {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
 .btn.text {
   color: var(--accent);
   padding: 7px 0;
@@ -1057,6 +1073,7 @@ hr {
 .screen-findings li{margin:4px 0}
 .provider{padding:10px 12px;margin:8px 0;border:1px solid var(--line,#d8d8d8);border-radius:8px}
 .provider.active{border-color:#2f8f5b}
+.provider .btn + .btn{margin-left:8px}
 .provider-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .provider-head strong{margin-right:auto}
 details.setting{border:1px solid var(--line);border-radius:10px;padding:0 14px;margin:10px 0}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import path from 'node:path';import os from 'node:os';
 import {createServer} from '../server.mjs';
 import {localClient} from '../web/local-client.mjs';
@@ -17,6 +17,12 @@ test('실제 서버 재시작 후 동시 요청이 로컬 연결을 한 번 갱�
   const denied=await fetch(base+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':'expired'},body:JSON.stringify({name:'생성 금지'})});
   assert.equal(denied.status,401);assert.equal((await denied.json()).code,'LOCAL_SESSION_EXPIRED');assert.ok(!(await store.load()).projects.some(p=>p.name==='생성 금지'));
  }finally{await new Promise(r=>server.close(r));await rm(directory,{recursive:true,force:true});}
+});
+test('접속 링크로 연결에 실패해도 다음 연결 시도는 새로 요청하고 첫 화면을 다시 시작한다',async()=>{
+ let sessions=0;const c=localClient(async()=>{sessions++;return sessions===1?new Response('{}',{status:403}):Response.json({token:'t'});});
+ await assert.rejects(c.connect(),/접속 링크/);await c.connect();assert.equal(sessions,2);
+ const app=await readFile(new URL('../web/app.mjs',import.meta.url),'utf8');assert.match(app,/hashchange[\s\S]{0,160}if \(!state\) return boot\(\)/);
+ const css=await readFile(new URL('../web/style.css',import.meta.url),'utf8');assert.match(css,/\.btn\.primary\.small \{\s*background: var\(--accent\)/);
 });
 test('Codex 인증 실패·실행 실패·네트워크 오류는 작업을 자동 재실행하지 않는다',async()=>{
  for(const [status,code] of [[401,'LOGIN_REQUIRED'],[500,'FAILED']]){let calls=0,sessions=0;const c=localClient(async route=>{if(route==='/api/session'){sessions++;return Response.json({token:'t'});}calls++;return Response.json({code,error:'인증 필요'},{status});});assert.equal((await c.request('/api/action',{method:'POST'})).status,status);assert.equal(calls,1);assert.equal(sessions,1);}
