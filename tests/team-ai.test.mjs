@@ -9,7 +9,7 @@ import { createServer, sourceDigest } from "../server.mjs";
 import { approve } from "../lib/domain.mjs";
 import { teamPolicies, interpretationStatus } from "../web/project-policies.mjs";
 import { fixtureReferences, projectTypes, validateGeneratedJava, verifyNativeJava } from "../lib/native-java-runner.mjs";
-import { gradleCommand, gradleWrapper, noTestsFound, outOfMemory } from "../lib/build-tool.mjs";
+import { gradleCommand, gradleWrapper, noTestsFound, outOfMemory, gradleDownloadFailed } from "../lib/build-tool.mjs";
 import { AI_WORK, BUILD_WORK, WorkGate, availableMemoryMb } from "../lib/work-gate.mjs";
 import { discoverControllers } from "../lib/controller-catalog.mjs";
 import { retireFailedNativeTests } from "../lib/native-test-files.mjs";
@@ -461,6 +461,8 @@ test("무거운 작업은 순서대로, 메모리가 있을 때만 시작하고 
   assert.equal(await availableMemoryMb(async () => { throw new Error("no proc"); }), Infinity);
   assert.ok(outOfMemory("Process 'Gradle Test Executor 1' finished with non-zero exit value 137"));
   assert.ok(!outOfMemory("BUILD SUCCESSFUL"));
+  assert.ok(gradleDownloadFailed("java.io.IOException: 504\n\tat org.gradle.wrapper.Download.download(SourceFile:1)"));
+  assert.ok(!gradleDownloadFailed("error: cannot find symbol"));
 });
 
 test("팀 정책 모음은 승인된 답변만 모으고 충돌을 먼저 보여 준다", () => {
