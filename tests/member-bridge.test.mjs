@@ -47,7 +47,7 @@ test("팀원 PC의 Claude가 그 팀원의 요청만 처리하고 로그인 정�
       url: `http://127.0.0.1:${port}`, token: pcToken, log: () => {}, retryMs: 5, stop: () => stopped,
       runtime: { status: async () => ({ status: "CONNECTED" }), analyze: async (input) => { seen.push(input); return { result: { ok: true }, evidence: { provider: "claude", auth: "subscription" } }; } },
       fetchImpl: (url, { headers, body, signal }) => send(port, url.pathname, { headers, body, signal }),
-    });
+    }).catch((e) => e);
     await wait(async () => (await (await send(port, "/api/ai/member", { method: "GET", headers: app })).json()).status === "CONNECTED");
     const answered = await (await runtime.forMember(member)).analyze({ nodes: { a: 1 }, images: [], schema, instructions: "규칙", model: "opus" });
     assert.deepEqual(answered.result, { ok: true });
@@ -60,7 +60,7 @@ test("팀원 PC의 Claude가 그 팀원의 요청만 처리하고 로그인 정�
     assert.ok(!stored.includes(pcToken), "연결 토큰은 해시로만 저장한다");
     const { command: next } = await (await send(port, "/api/ai/member/pc/start", { headers: app, body: "{}" })).json();
     assert.notEqual(next.match(/--token (\w+)/)[1], pcToken);
-    await assert.rejects(client, /연결이 해제/, "새 명령을 받으면 이전 명령은 끊긴다");
+    assert.match((await client).message, /연결이 해제/, "새 명령을 받으면 이전 명령은 끊긴다");
   } finally {
     stopped = true;
     await new Promise((r) => server.close(r));
