@@ -13,7 +13,8 @@ function environment(){
   const route=url.split('/v1/')[1].split('?')[0],body=options.body?JSON.parse(options.body):{};
   const index=indexResponse(url,options);if(index)return index;
   let data;
-  if(route.startsWith('databases/'))data={id:'db',url:'https://notion.so/db',data_sources:[{id:'ds'}]};
+  if(/^blocks\/parent\d?$/.test(route)&&options.method==='GET')data={id:route.slice(7),type:'child_page'};
+  else if(route.startsWith('databases/'))data={id:'db',url:'https://notion.so/db',data_sources:[{id:'ds'}]};
   else if(route.endsWith('/templates'))data={templates:[]};
   else if(route==='data_sources/ds')data={id:'ds',properties:indexProperties('title')};
   else if(route==='pages'&&options.method==='POST'){data={id:'row-'+pages.length,url:'https://notion.so/row-'+pages.length};pages.push(data);}

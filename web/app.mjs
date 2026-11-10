@@ -199,7 +199,7 @@ function notionStatusView(x) {
   let content;
   if(current && status.status==="DONE")content=`<span>승인한 API 명세를 Notion에 저장했습니다.</span><a class="btn small" href="${esc(status.url)}" target="_blank" rel="noopener">Notion API 목록 열기</a>`;
   else if(current && status.status==="RUNNING")content='<span><span class="spinner"></span> Notion에 저장하고 있습니다.</span>';
-  else if(current && status.status==="ERROR")content=`<span>Notion 저장을 마치지 못했어요. ${esc(status.message)}</span>${btn("다시 보내기","notion","small")}`;
+  else if(current && status.status==="ERROR")content=`<span>Notion 저장을 마치지 못했어요. ${esc(status.message)} 검사는 그대로 진행할 수 있어요.</span>${btn("다시 보내기","notion","small")}`;
   else if(!canManage() && !(state.connections.notion && dest?.parentId))return "";
   else content=`<span>아직 Notion에 저장하지 않았습니다.</span>${btn("Notion에 명세 저장","notion","small")}`;
   return `<div class="notion-status" role="status">${content}</div>`;
@@ -404,7 +404,7 @@ function figmaSection(p, library) {
 }
 function notionSection(p) {
   const documents = p.documents || [];
-  return `<form id="project-notion-form" data-project-id="${esc(p.id)}"><label class="field">Notion API 키<input name="notionToken" type="password" autocomplete="off" placeholder="${state.connections.notion ? "저장됨" : ""}"></label><label class="field">API 명세서 링크<input name="notionPageUrl" type="url" value="${esc(p.notion?.notionPageUrl)}" placeholder="https://www.notion.so/..."></label><label class="field">기능명세서 링크<textarea name="documentUrls" rows="3" placeholder="한 줄에 하나씩, 최대 5개">${esc(documents.map((d) => d.url).join("\n"))}</textarea></label>${documents.length ? `<ul class="hint">${documents.map((d) => `<li>${esc(d.title)}${d.truncated ? " · 길어서 일부만 읽음" : ""}</li>`).join("")}</ul>` : ""}<button class="btn primary" type="submit">저장</button></form>`;
+  return `<form id="project-notion-form" data-project-id="${esc(p.id)}"><label class="field">Notion API 키<input name="notionToken" type="password" autocomplete="off" placeholder="${state.connections.notion ? "저장됨" : ""}"></label><label class="field">API 명세서 링크<input name="notionPageUrl" type="url" value="${esc(p.notion?.notionPageUrl)}" placeholder="https://www.notion.so/..."></label><label class="field">API 명세서용 Notion 키<input name="notionApiToken" type="password" autocomplete="off" placeholder="${state.connections.notionApi ? "저장됨" : "다른 워크스페이스일 때만"}"></label><label class="field">기능명세서 링크<textarea name="documentUrls" rows="3" placeholder="한 줄에 하나씩, 최대 5개">${esc(documents.map((d) => d.url).join("\n"))}</textarea></label>${documents.length ? `<ul class="hint">${documents.map((d) => `<li>${esc(d.title)}${d.truncated ? " · 길어서 일부만 읽음" : ""}</li>`).join("")}</ul>` : ""}<button class="btn primary" type="submit">저장</button></form>`;
 }
 async function settingsDialog(section) {
   verifyAfterConnect = false;
@@ -789,7 +789,7 @@ document.addEventListener("submit", async (event) => {
       await refresh(); render();
       modal("Figma 연결 완료", `<p><strong>${esc(state.projects.find((p) => p.id === projectId)?.name)}</strong>에 연결했습니다. Figma로 돌아가 필요한 설계서를 드래그로 고른 뒤 선택한 화면설계서 저장을 눌러 주세요.</p>${btn("확인", "close", "primary")}`);
     } else if (form.id === "project-notion-form") {
-      if (data.notionToken) await api("/api/settings", { notionToken: data.notionToken });
+      if (data.notionToken || data.notionApiToken) await api("/api/settings", { notionToken: data.notionToken || undefined, notionApiToken: data.notionApiToken || undefined });
       await api(`/api/projects/${form.dataset.projectId}/notion`, { notionPageUrl: data.notionPageUrl, documentUrls: data.documentUrls.split(/\s+/).filter(Boolean) });
       await refresh();
       await settingsDialog("notion");

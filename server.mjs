@@ -348,7 +348,8 @@ export async function createServer({
             settings: { model:state.settings.model || "", aiProvider: state.settings.aiProvider, notionTemplate: state.settings.notionTemplate },
             connections: {
               ai: Boolean(state.settings.aiProvider),
-              notion: Boolean(secrets.notionToken),
+              notion: Boolean(secrets.notionToken || secrets.notionApiToken),
+              notionApi: Boolean(secrets.notionApiToken),
               shared: Boolean(remoteOrigin),
               operator: Boolean(remoteOrigin),
             },
@@ -699,14 +700,14 @@ export async function createServer({
         }
         if (route === "/api/settings" && req.method === "POST") {
           const data = await body(req);
-          if (["notionToken", "claudeApiKey", "geminiApiKey"].some((k) => data[k] !== undefined)) operatorOnly(req);
+          if (["notionToken", "notionApiToken", "claudeApiKey", "geminiApiKey"].some((k) => data[k] !== undefined)) operatorOnly(req);
           ensure(data.notionPageUrl === undefined && data.parentId === undefined, "노션 페이지 링크는 프로젝트 설정에 입력해 주세요.");
           if (data.model !== undefined) {
             ensure(typeof data.model === "string", "모델을 선택해 주세요.");
             if (data.model) ensure((await runtime.models()).models.some(m=>m.id===data.model), "선택한 AI에서 사용할 수 있는 모델을 골라 주세요.");
           }
-          for (const k of ["claudeApiKey", "geminiApiKey"]) ensure(data[k] === undefined || (typeof data[k] === "string" && data[k].length < 500), "API 키 형식을 확인해 주세요.");
-          await store.saveSecrets({ notionToken: data.notionToken, claudeApiKey: data.claudeApiKey?.trim(), geminiApiKey: data.geminiApiKey?.trim() });
+          for (const k of ["claudeApiKey", "geminiApiKey", "notionApiToken"]) ensure(data[k] === undefined || (typeof data[k] === "string" && data[k].length < 500), "API 키 형식을 확인해 주세요.");
+          await store.saveSecrets({ notionToken: data.notionToken, notionApiToken: data.notionApiToken?.trim(), claudeApiKey: data.claudeApiKey?.trim(), geminiApiKey: data.geminiApiKey?.trim() });
           await store.mutate((s) => {
             if (data.model !== undefined) s.settings.model = data.model;
             delete s.settings.template;

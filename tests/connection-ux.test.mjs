@@ -68,6 +68,8 @@ test("연결 설정 API는 링크를 저장하고 제거된 문구를 무시하�
     assert.equal(settings.template, undefined);
     assert.equal((await send({ notionPageUrl: "invalid", notionToken: "do-not-save" })).status, 400);
     assert.equal((await store.secrets()).notionToken, "test-key");
+    assert.equal((await send({ notionApiToken: " api-key " })).status, 200);
+    assert.deepEqual([(await store.secrets()).notionToken, (await store.secrets()).notionApiToken], ["test-key", "api-key"]);
     assert.deepEqual((await store.load()).settings, settings);
   } finally {
     await new Promise((resolve) => server.close(resolve));

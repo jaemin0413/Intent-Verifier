@@ -39,6 +39,13 @@ test('Notion 실패 상태를 남기며 검사 흐름을 중단하지 않고 재
  assert.equal(Object.keys(state.features[0].publications||{}).length,0);
  await publisher.publish('f');assert.equal(state.features[0].notionPublication.status,'DONE');
 });
+test('API 명세 전용 키로 쓰고, 닿지 않는 페이지는 첫 요청에서 실패한다',async()=>{
+ const state={runs:[],projects:[{id:'p',notion:{parentId:'a'.repeat(32)}}],features:[{id:'f',projectId:'p',spec:structuredClone(spec)}]};
+ const store={async load(){return structuredClone(state);},async secrets(){return {notionToken:'doc-key',notionApiToken:'api-key'};},async mutate(fn){return fn(state);}};
+ const seen=[];const publisher=new NotionPublisher(store,async(url,opts)=>{seen.push(opts.headers.Authorization);return {ok:false,status:404,json:async()=>({})};});
+ assert.equal(await publisher.automatic('f'),null);
+ assert.deepEqual(seen,['Bearer api-key']);assert.equal(state.features[0].notionPublication.status,'ERROR');assert.match(state.features[0].notionPublication.message,/연결/);
+});
 test('설정 없는 프로젝트, 예제, 미승인 문서는 자동 발행하지 않는다',async()=>{
  let calls=0;const {state,publisher,clearToken}=setup(async()=>{calls++;throw Error('must not send');});
  state.features[0].demo=true;await publisher.automatic('f',passed);delete state.features[0].demo;
